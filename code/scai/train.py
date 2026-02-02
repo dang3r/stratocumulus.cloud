@@ -1,6 +1,5 @@
 import random
 from collections import Counter
-from multiprocessing import Value
 from pathlib import Path
 from typing import Tuple
 
@@ -125,6 +124,13 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
     running_loss = 0.0
     correct = 0
     total = 0
+    tp = 0
+    tn = 0
+    fp = 0
+    fn = 0
+    prec = 0.0
+    spec = 0.0
+    rec = 0.0
 
     for images, labels in dataloader:
         images = images.to(device)
@@ -140,12 +146,107 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
         predictions = (torch.sigmoid(results) > 0.5).float()
         total += tf_labels.size(0)
         correct += (predictions == tf_labels).sum().item()
+        ntp, ntn, nfp, nfn = confusion_matrix(predictions, labels)
+        tp += ntp
+        tn += ntn
+        fp += nfp
+        fn += nfn
+        prec += precision(ntp, nfp)
+        rec += recall(ntp, nfn)
 
     epoch_loss = running_loss / len(dataloader)
     epoch_acc = correct / total
 
     print(f"Epoch loss: {epoch_loss}, Epoch accuracy: {epoch_acc}")
     return epoch_loss, epoch_acc
+
+
+def confusion_matrix(predictions, labels):
+    """
+    Compute the confusion matrix for binary classification.
+
+    Args:
+        predictions: Binary predictions (0 or 1), shape (N,) or (N, 1)
+        labels: Ground truth labels (0 or 1), shape (N,) or (N, 1)
+
+    Returns:
+        tuple: (TP, TN, FP, FN) as integers
+
+    TODO: Implement this function
+    Hints:
+        - First ensure predictions and labels have the same shape (flatten if needed)
+        - TP: Count where (labels == 1) AND (predictions == 1)
+        - TN: Count where (labels == 0) AND (predictions == 0)
+        - FP: Count where (labels == 0) AND (predictions == 1)
+        - FN: Count where (labels == 1) AND (predictions == 0)
+        - Use .sum().item() to convert torch tensor counts to Python integers
+        - Remember: Sc (class 1) is the positive class
+    """
+    predictions = predictions.flatten()
+    labels = labels.flatten()
+
+    tp = ((predictions == 1) & (labels == 1)).sum()
+    tn = ((predictions == 0) & (labels == 0)).sum()
+    fp = ((predictions == 1) & (labels == 0)).sum()
+    fn = ((predictions == 0) & (labels == 1)).sum()
+    return tp.item(), tn.item(), fp.item(), fn.item()
+
+
+def precision(tp, fp):
+    """
+    Compute precision: Of all positive predictions, how many were correct?
+
+    Args:
+        tp: True positives count
+        fp: False positives count
+
+    Returns:
+        float: Precision score between 0 and 1, or 0.0 if undefined
+
+    TODO: Implement this function
+    Hints:
+        - Formula: TP / (TP + FP)
+        - Handle division by zero: if (TP + FP) == 0, return 0.0
+    """
+    return tp / (tp + fp) if (tp + fp) != 0 else 0.0
+
+
+def recall(tp, fn):
+    """
+    Compute recall (sensitivity): Of all actual positives, how many did we find?
+
+    Args:
+        tp: True positives count
+        fn: False negatives count
+
+    Returns:
+        float: Recall score between 0 and 1, or 0.0 if undefined
+
+    TODO: Implement this function
+    Hints:
+        - Formula: TP / (TP + FN)
+        - Handle division by zero: if (TP + FN) == 0, return 0.0
+    """
+    return tp / (tp + fn) if (tp + fn) != 0 else 0.0
+
+
+def specificity(tn, fp):
+    """
+    Compute specificity: Of all actual negatives, how many did we correctly reject?
+
+    Args:
+        tn: True negatives count
+        fp: False positives count
+
+    Returns:
+        float: Specificity score between 0 and 1, or 0.0 if undefined
+
+    TODO: Implement this function
+    Hints:
+        - Formula: TN / (TN + FP)
+        - Handle division by zero: if (TN + FP) == 0, return 0.0
+    """
+    return tn / (tn + fp) if (tn + fp) != 0 else 0.0
 
 
 def validate(model, dataloader, criterion, device):
@@ -165,13 +266,24 @@ def validate(model, dataloader, criterion, device):
             predictions = (torch.sigmoid(results) > 0.5).float()
             total += tf_labels.size(0)
             correct += (predictions == tf_labels).sum().item()
+            tp, tn, fp, fn = confusion_matrix(predictions, labels)
+            print(f"TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
 
     epoch_loss = running_loss / len(dataloader)
     epoch_acc = correct / total
     return epoch_loss, epoch_acc
 
 
-def main():
+def get_model():
+    model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
+    model.classifier[-1] = nn.Sequential(
+        nn.Dropout(0.3),
+        nn.Linear(model.classifier[-1].in_features, 1),
+    )
+    return model
+
+
+def dataloaders() -> Tuple[DataLoader, DataLoader]:
     dataset = StratocumulusDataset("clouds_train")
     print(f"Total number of images: {len(dataset)}")
 
@@ -216,6 +328,13 @@ def main():
     train_loader = DataLoader(train_subset, batch_size=32, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_subset, batch_size=32, shuffle=False, num_workers=4)
 
+    return train_loader, val_loader
+
+
+def train():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = get_model()
+    train_loader, val_loader = dataloaders()
     print("Dataloader info")
     print(f"Train batches: {len(train_loader)}")
     print(f"Val batches: {len(val_loader)}")
@@ -224,18 +343,12 @@ def main():
     print(f"Image shape: {images.shape}, Label shape: {labels.shape}")
     print(f"Label values: {labels.tolist()}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
-    model.classifier[-1] = nn.Sequential(
-        nn.Dropout(0.3),
-        nn.Linear(1024, 1),
-    )
-    model.to(device)
+    model = model.to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([6.48], device=device))
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.0001)
-
-    best_val_acc = 0
-    patience = 5
+    patience = 10
+    best_val_acc = 0.0
+    best_epoch = 0
 
     for e in range(30):
         print(f"Epo{e}")
@@ -255,25 +368,21 @@ def main():
 
 
 def infer():
-    # load the model from the  best_model.pth path
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
-    model.classifier[-1] = nn.Sequential(
-        nn.Dropout(0.3),
-        nn.Linear(1024, 1),
-    )
+    model = get_model()
     model.load_state_dict(torch.load("best_model.pth"))
     model.eval()
     model.to(device)
 
-    ds = StratocumulusDataset("test_Sc", transform=val_transforms)
-    ds1 = StratocumulusDataset(
+    ds = StratocumulusDataset(
         Path("clouds_test") / "stratocumulus clouds", transform=val_transforms
     )
     dl = DataLoader(ds, batch_size=32, shuffle=False, num_workers=4)
 
     correct_predictions = 0
     total_predictions = 0
+    all_predictions = []
+    all_labels = []
     for image, label in dl:
         image = image.to(device)
         label = label.to(device)
@@ -285,6 +394,15 @@ def infer():
             print(f"Predictions: {predictions}, Labels: {label}")
             correct_predictions += predictions.sum().item()
             total_predictions += predictions.numel()
+            all_predictions.extend(predictions)
+            all_labels.extend(label)
+
+    # convert to tensors
+    all_predictions = torch.tensor(all_predictions)
+    all_labels = torch.tensor(all_labels)
+
+    tp, tn, fp, fn = confusion_matrix(all_predictions, all_labels)
+    print(f"TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
 
     accuracy = correct_predictions / total_predictions
     print(f"Accuracy: {accuracy:.4f}")
@@ -297,4 +415,4 @@ if __name__ == "__main__":
     if sys.argv[1] == "test":
         infer()
     else:
-        main()
+        train()
