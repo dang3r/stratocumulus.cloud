@@ -1,9 +1,82 @@
-<html>
+<!doctype html>
+<html lang="en">
     <head>
-        <title>Stratocumulus Cloud</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Stratocumulus Classifier</title>
+        <style>
+            body {
+                max-width: 600px;
+            }
+            button {
+                font-size: 16px;
+                cursor: pointer;
+                margin-top: 10px;
+                margin-right: 10px;
+            }
+            #imagePreview {
+                max-width: 100%;
+                margin-top: 20px;
+                display: none;
+            }
+            #videoPreview {
+                max-width: 100%;
+                margin-top: 20px;
+                display: none;
+            }
+            #result {
+                font-size: 20px;
+                margin-top: 20px;
+                padding: 15px;
+                display: none;
+            }
+            #liveResult {
+                font-size: 20px;
+                margin-top: 20px;
+                padding: 15px;
+                display: none;
+            }
+            .green {
+                background-color: #90ee90;
+                color: black;
+            }
+            .red {
+                background-color: #ffb6c6;
+                color: black;
+            }
+            #loading {
+                display: none;
+                margin-top: 20px;
+            }
+            input[type="file"] {
+                display: none;
+            }
+        </style>
     </head>
     <body>
-        <h2>Stratocumulus Cloud</h2>
-        <img src="https://whatsthiscloud.com/wp-content/uploads/2018/03/stratocumulus-floccus-1.jpg" />
+        <h1>Stratocumulus Cloud Classifier (WIP)</h1>
+        <p>
+            I bought this domain a long time ago before even knowing what a
+            stratocumulus cloud was. I am using this as a way of learing more
+            about cloud and how to build a dl model for detecting them! Here is
+            a model built from a Kaggle cloud dataset. Its not great yet but it
+            will keep improving.
+        </p>
+
+        <button id="uploadButton">Upload Image</button>
+        <button id="webcamButton">Start Webcam</button>
+        <button id="stopWebcamButton" style="display: none">Stop Webcam</button>
+        <input type="file" id="fileInput" accept="image/*" />
+
+        <img id="imagePreview" alt="Preview" />
+        <video id="videoPreview" autoplay playsinline></video>
+
+        <div id="loading">Analyzing...</div>
+
+        <div id="result"></div>
+        <div id="liveResult"></div>
+
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+        <script src="js/classifier.js"></script>
     </body>
 </html>
