@@ -56,11 +56,9 @@
     <body>
         <h1>Stratocumulus Cloud Classifier (WIP)</h1>
         <p>
-            I bought this domain a long time ago before even knowing what a
-            stratocumulus cloud was. I am using this as a way of learing more
-            about cloud and how to build a dl model for detecting them! Here is
-            a model built from a Kaggle cloud dataset. Its not great yet but it
-            will keep improving.
+            Upload a photo or point your camera at the sky. Buildings and trees
+            can stay in view. If the sky is mostly hidden, try a different angle.
+            The estimate runs in your browser.
         </p>
 
         <button id="uploadButton">Upload Image</button>
@@ -76,7 +74,7 @@
         <div id="result"></div>
         <div id="liveResult"></div>
 
-        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.js"></script>
         <script src="js/classifier.js"></script>
     </body>
 </html>
