@@ -39,9 +39,14 @@ class StratocumulusDataset(Dataset):
         self.transform = transform
         self.img_to_label = dict()
 
-        for image_path in self.data_dir.rglob("*.jpg"):
-            terms = ["sc", "stratocumulus"]
-            is_sc = any(term in str(image_path).lower() for term in terms)
+        for image_path in sorted(self.data_dir.rglob("*.jpg")):
+            folders = image_path.relative_to(self.data_dir).parts[:-1]
+            if not folders:
+                raise ValueError(f"Image needs a class folder: {image_path}")
+            is_sc = any(
+                folder.casefold() in {"sc", "stratocumulus", "stratocumulus clouds"}
+                for folder in folders
+            )
             self.img_to_label[image_path] = int(is_sc)
 
         self.imgs = list(self.img_to_label.keys())
@@ -274,8 +279,8 @@ def validate(model, dataloader, criterion, device):
     return epoch_loss, epoch_acc
 
 
-def get_model():
-    model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
+def get_model(*, pretrained=True):
+    model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT if pretrained else None)
     model.classifier[-1] = nn.Sequential(
         nn.Dropout(0.3),
         nn.Linear(model.classifier[-1].in_features, 1),
@@ -356,6 +361,7 @@ def train():
         loss, acc = validate(model, val_loader, criterion, device)
         if acc > best_val_acc:
             best_val_acc = acc
+            patience = 10
             best_epoch = e
             torch.save(model.state_dict(), f"best_model_{best_epoch}.pth")
             torch.save(model.state_dict(), "best_model.pth")
@@ -369,44 +375,35 @@ def train():
 
 def infer():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model()
-    model.load_state_dict(torch.load("best_model.pth"))
+    ds = StratocumulusDataset("clouds_test", transform=val_transforms)
+    if set(ds.labels) != {0, 1}:
+        raise ValueError("clouds_test must contain both Sc and other cloud images")
+
+    model = get_model(pretrained=False)
+    model.load_state_dict(torch.load("best_model.pth", map_location=device))
     model.eval()
     model.to(device)
-
-    ds = StratocumulusDataset(
-        Path("clouds_test") / "stratocumulus clouds", transform=val_transforms
-    )
     dl = DataLoader(ds, batch_size=32, shuffle=False, num_workers=4)
 
-    correct_predictions = 0
-    total_predictions = 0
-    all_predictions = []
-    all_labels = []
-    for image, label in dl:
-        image = image.to(device)
-        label = label.to(device)
-        with torch.no_grad():
-            outputs = model(image)
-            sig = torch.sigmoid(outputs)
-            predictions = sig > 0.5
-            print(sig, predictions)
-            print(f"Predictions: {predictions}, Labels: {label}")
-            correct_predictions += predictions.sum().item()
-            total_predictions += predictions.numel()
-            all_predictions.extend(predictions)
-            all_labels.extend(label)
-
-    # convert to tensors
-    all_predictions = torch.tensor(all_predictions)
-    all_labels = torch.tensor(all_labels)
-
-    tp, tn, fp, fn = confusion_matrix(all_predictions, all_labels)
+    tp, tn, fp, fn = evaluate_counts(model, dl, device)
+    total = tp + tn + fp + fn
     print(f"TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
+    print(f"Accuracy: {(tp + tn) / total:.4f}")
+    print(f"Precision: {precision(tp, fp):.4f}, Recall: {recall(tp, fn):.4f}")
+    print(f"Correct/total: {tp + tn}/{total}")
 
-    accuracy = correct_predictions / total_predictions
-    print(f"Accuracy: {accuracy:.4f}")
-    print(f"Correct/total: {correct_predictions}/{total_predictions}")
+
+@torch.inference_mode()
+def evaluate_counts(model, dataloader, device):
+    tp = tn = fp = fn = 0
+    for images, labels in dataloader:
+        predictions = model(images.to(device)) > 0  # sigmoid(logit) > 0.5
+        batch_tp, batch_tn, batch_fp, batch_fn = confusion_matrix(predictions, labels.to(device))
+        tp += batch_tp
+        tn += batch_tn
+        fp += batch_fp
+        fn += batch_fn
+    return tp, tn, fp, fn
 
 
 if __name__ == "__main__":
