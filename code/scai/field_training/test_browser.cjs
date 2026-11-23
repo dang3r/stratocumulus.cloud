@@ -40,3 +40,12 @@ test("a background score asks for a different view", async () => {
   ];
   assert.match(await context.classify({ width: 224, height: 224 }), /Aim at/);
 });
+
+test("mixed-scene mode uses the field decision for uploads and camera frames", async () => {
+  const context = browser();
+  const photo = { naturalWidth: 640, naturalHeight: 480 };
+  const frame = { width: 320, height: 240 };
+  context.classifyFieldScene = async image => ({ positive: image === photo });
+  assert.equal(await context.classify(photo), "Possible stratocumulus");
+  assert.match(await context.classify(frame, "video"), /No strong stratocumulus/);
+});

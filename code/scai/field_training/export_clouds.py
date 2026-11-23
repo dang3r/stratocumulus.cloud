@@ -47,6 +47,7 @@ def fuse(source, settings, output):
     op("Softmax", ["logits"], "scores", axis=1)
     del g.output[:]
     g.output.append(helper.make_tensor_value_info("scores", TensorProto.FLOAT, [1, 3]))
+    g.output.append(helper.make_tensor_value_info("embedding", TensorProto.FLOAT, [1, 768]))
     onnx.checker.check_model(m)
     onnx.save(m, output)
 

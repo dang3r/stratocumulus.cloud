@@ -43,3 +43,5 @@ Model downloads are approximately 25.0 MB for photos and 7.36 MB for video, befo
 Warm median and 95th-percentile inference times were 396 ms and 448 ms for photos, and 29 ms and 42 ms for video. Browser runtime and device hardware affect both results.
 
 A follow-up browser experiment evaluates up to three native-resolution sky crops per photo on additional GLOBE Observer images and matched building composites. [Region labels, measurements and reproduction](regions/README.md)
+
+The opt-in mixed-scene model was trained with directional CLOUD GAZE labels. Chromium geographic cross-validation on 152 real photos with buildings detected 27 of 30 positives and raised 32 false alarms among 122 negatives. The release report includes independent phone photos, curated galleries, synthetic controls and camera tests. [Mixed-scene model and benchmark](cloud_gaze/README.md)

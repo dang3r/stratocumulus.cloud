@@ -9,3 +9,4 @@ This project is what you get when:
 ## Licensing
 
 Standard :cloud: licensing.
+The mixed-scene model can be selected in the browser for uploaded photos and camera frames. [Training, test results and local launch instructions](code/scai/field_training/cloud_gaze/README.md)

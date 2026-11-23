@@ -93,6 +93,10 @@ async function liveScores(image, w, h, input, box, clouds, head) {
 }
 
 async function classify(image, mode = "photo") {
+  if (globalThis.classifyFieldScene) {
+    const result = await globalThis.classifyFieldScene(image);
+    return result.positive ? "Possible stratocumulus" : "No strong stratocumulus signal in this view.";
+  }
   const [sky, clouds, configuration] = await loadModels(mode);
   let settings = configuration;
   const w = image.videoWidth || image.naturalWidth || image.width;
