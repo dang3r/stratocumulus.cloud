@@ -41,3 +41,5 @@ Both models ran in Chromium 156 and in Playwright WebKit 26.5 with a mobile-size
 Model downloads are approximately 25.0 MB for photos and 7.36 MB for video, before transfer compression. These sizes exclude the shared ONNX Runtime Web library. On this Linux host a separate warm run measured 30 predictions of the same phone image in each mode. Browser decoding, model download and startup time are excluded.
 
 Warm median and 95th-percentile inference times were 396 ms and 448 ms for photos, and 29 ms and 42 ms for video. Browser runtime and device hardware affect both results.
+
+A follow-up browser experiment evaluates up to three native-resolution sky crops per photo on additional GLOBE Observer images and matched building composites. [Region labels, measurements and reproduction](regions/README.md)
